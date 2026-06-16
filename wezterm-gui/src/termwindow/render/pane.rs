@@ -1,6 +1,10 @@
-use crate::quad::{HeapQuadAllocator, QuadTrait, TripleLayerQuadAllocator};
+use crate::quad::{
+    HeapQuadAllocator, Quad, QuadTrait, TripleLayerQuadAllocator, TripleLayerQuadAllocatorTrait,
+    VERTICES_PER_CELL,
+};
 use crate::selection::SelectionRange;
 use crate::termwindow::box_model::*;
+use crate::termwindow::cursor_trail::TickContext;
 use crate::termwindow::render::{
     same_hyperlink, CursorProperties, LineQuadCacheKey, LineQuadCacheValue, LineToEleShapeCacheKey,
     RenderScreenLineParams,
@@ -568,6 +572,56 @@ impl crate::TermWindow {
             pos.pane.with_lines_mut(stable_range.clone(), &mut render);
             if let Some(error) = render.error.take() {
                 return Err(error).context("error while calling with_lines_mut");
+            }
+
+            if config.cursor_trail.enabled && pos.is_active {
+                if self.cursor_trail_pane != Some(pane_id) {
+                    self.cursor_trail.reset();
+                    self.cursor_trail_pane = Some(pane_id);
+                }
+
+                let draw_cursor_trail = self
+                    .cursor_trail
+                    .tick(TickContext::from_cursor(cursor, &config.cursor_trail));
+
+                if draw_cursor_trail {
+                    let mut vertices = [Default::default(); VERTICES_PER_CELL];
+                    let mut quad = Quad {
+                        vert: &mut vertices,
+                    };
+
+                    let frame_interval = std::time::Duration::from_millis(
+                        1000 / u64::from(config.animation_fps.max(1)),
+                    );
+                    self.update_next_frame_time(Some(start + frame_interval));
+
+                    let left_pixel_x =
+                        padding_left + border.left.get() as f32 + (pos.left as f32 * cell_width);
+                    let px_x = (self.dimensions.pixel_width as f32 / -2.0) + left_pixel_x;
+                    let px_y = (self.dimensions.pixel_height as f32 / -2.0) + top_pixel_y;
+
+                    self.cursor_trail.apply_to_quad(
+                        &mut quad,
+                        cell_width,
+                        cell_height,
+                        pos.left,
+                        stable_range.start,
+                        px_x,
+                        px_y,
+                    );
+
+                    let (r, g, b, _) = cursor_border_color.tuple();
+                    let trail_color =
+                        LinearRgba::with_components(r, g, b, config.cursor_trail.opacity);
+
+                    quad.set_fg_color(trail_color);
+                    quad.set_hsv(None);
+                    quad.set_texture(white_space);
+                    quad.set_is_background();
+
+                    drop(quad);
+                    layers.extend_with(0, &vertices);
+                }
             }
         }
 

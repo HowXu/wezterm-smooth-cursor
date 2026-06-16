@@ -72,6 +72,7 @@ pub mod background;
 pub mod box_model;
 pub mod charselect;
 pub mod clipboard;
+mod cursor_trail;
 pub mod keyevent;
 pub mod modal;
 mod mouseevent;
@@ -84,6 +85,7 @@ mod selection;
 pub mod spawn;
 pub mod webgpu;
 use crate::spawn::SpawnWhere;
+use cursor_trail::CursorTrail;
 use prevcursor::PrevCursorPos;
 
 const ATLAS_SIZE: usize = 128;
@@ -401,6 +403,8 @@ pub struct TermWindow {
     window_drag_position: Option<MouseEvent>,
     current_mouse_event: Option<MouseEvent>,
     prev_cursor: PrevCursorPos,
+    cursor_trail: CursorTrail,
+    cursor_trail_pane: Option<PaneId>,
     last_scroll_info: RenderableDimensions,
 
     tab_state: RefCell<HashMap<TabId, TabState>>,
@@ -719,6 +723,8 @@ impl TermWindow {
             current_mouse_event: None,
             current_modifier_and_leds: Default::default(),
             prev_cursor: PrevCursorPos::new(),
+            cursor_trail: CursorTrail::new(),
+            cursor_trail_pane: None,
             last_scroll_info: RenderableDimensions::default(),
             tab_state: RefCell::new(HashMap::new()),
             pane_state: RefCell::new(HashMap::new()),
