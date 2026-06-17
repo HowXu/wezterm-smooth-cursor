@@ -158,6 +158,7 @@ pub struct CursorTrail {
     quad: TrailQuad,
     target: TrailTarget,
     last_cursor_pos: Pos,
+    movement: Pos,
     cursor_last_moved: Instant,
     updated_at: Instant,
     initialized: bool,
@@ -170,6 +171,7 @@ impl CursorTrail {
             quad: TrailQuad::default(),
             target: TrailTarget::default(),
             last_cursor_pos: Pos::default(),
+            movement: Pos::default(),
             cursor_last_moved: now,
             updated_at: now,
             initialized: false,
@@ -188,12 +190,17 @@ impl CursorTrail {
             self.target = TrailTarget::at(ctx.cursor_pos);
             self.quad = TrailQuad::at(ctx.cursor_pos);
             self.last_cursor_pos = ctx.cursor_pos;
+            self.movement = Pos::default();
             self.cursor_last_moved = ctx.now;
             self.initialized = true;
             return false;
         }
 
         if self.last_cursor_pos != ctx.cursor_pos {
+            self.movement = Pos {
+                x: ctx.cursor_pos.x - self.last_cursor_pos.x,
+                y: ctx.cursor_pos.y - self.last_cursor_pos.y,
+            };
             self.cursor_last_moved = ctx.now;
             self.last_cursor_pos = ctx.cursor_pos;
 
@@ -257,21 +264,47 @@ impl CursorTrail {
         px_x: f32,
         px_y: f32,
     ) {
+        let mut left = self.quad[0].x.min(self.quad[3].x);
+        let mut right = self.quad[1].x.max(self.quad[2].x);
+        let mut top = self.quad[0].y.min(self.quad[1].y);
+        let mut bottom = self.quad[2].y.max(self.quad[3].y);
+
+        // The real cursor is already drawn at the target; only draw the
+        // trailing segment behind it.
+        if self.movement.x.abs() >= self.movement.y.abs() {
+            if self.movement.x >= 0.0 {
+                right = right.min(self.target.left);
+            } else {
+                left = left.max(self.target.right);
+            }
+        } else if self.movement.y >= 0.0 {
+            bottom = bottom.min(self.target.top);
+        } else {
+            top = top.max(self.target.bottom);
+        }
+
+        if right < left {
+            right = left;
+        }
+        if bottom < top {
+            bottom = top;
+        }
+
         quad.vert[V_TOP_LEFT].position = [
-            px_x + (self.quad[0].x - pane_left as f32) * cell_width,
-            px_y + (self.quad[0].y - pane_top as f32) * cell_height,
+            px_x + (left - pane_left as f32) * cell_width,
+            px_y + (top - pane_top as f32) * cell_height,
         ];
         quad.vert[V_TOP_RIGHT].position = [
-            px_x + (self.quad[1].x - pane_left as f32) * cell_width,
-            px_y + (self.quad[1].y - pane_top as f32) * cell_height,
+            px_x + (right - pane_left as f32) * cell_width,
+            px_y + (top - pane_top as f32) * cell_height,
         ];
         quad.vert[V_BOT_RIGHT].position = [
-            px_x + (self.quad[2].x - pane_left as f32) * cell_width,
-            px_y + (self.quad[2].y - pane_top as f32) * cell_height,
+            px_x + (right - pane_left as f32) * cell_width,
+            px_y + (bottom - pane_top as f32) * cell_height,
         ];
         quad.vert[V_BOT_LEFT].position = [
-            px_x + (self.quad[3].x - pane_left as f32) * cell_width,
-            px_y + (self.quad[3].y - pane_top as f32) * cell_height,
+            px_x + (left - pane_left as f32) * cell_width,
+            px_y + (bottom - pane_top as f32) * cell_height,
         ];
     }
 }
