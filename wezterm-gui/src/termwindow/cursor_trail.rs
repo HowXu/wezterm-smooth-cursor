@@ -264,31 +264,38 @@ impl CursorTrail {
         px_x: f32,
         px_y: f32,
     ) {
-        let mut left = self.quad[0].x.min(self.quad[3].x);
-        let mut right = self.quad[1].x.max(self.quad[2].x);
-        let mut top = self.quad[0].y.min(self.quad[1].y);
-        let mut bottom = self.quad[2].y.max(self.quad[3].y);
+        let target_width = self.target.right - self.target.left;
+        let target_height = self.target.bottom - self.target.top;
 
-        // The real cursor is anchored at the target's left/top edge; keep the
-        // trail connected to that anchor when moving in either direction.
-        if self.movement.x.abs() >= self.movement.y.abs() {
-            if self.movement.x >= 0.0 {
-                right = right.min(self.target.left);
+        // Track the cursor anchor instead of the full cell edge so opposite
+        // movement directions produce mirrored trails.
+        let (left, right, top, bottom) = if self.movement.x.abs() >= self.movement.y.abs() {
+            let trailing_anchor = if self.movement.x >= 0.0 {
+                self.quad[0].x.min(self.quad[3].x)
             } else {
-                left = left.min(self.target.left);
-            }
-        } else if self.movement.y >= 0.0 {
-            bottom = bottom.min(self.target.top);
-        } else {
-            top = top.min(self.target.top);
-        }
+                self.quad[1].x.max(self.quad[2].x) - target_width
+            };
 
-        if right < left {
-            right = left;
-        }
-        if bottom < top {
-            bottom = top;
-        }
+            (
+                trailing_anchor.min(self.target.left),
+                trailing_anchor.max(self.target.left),
+                self.target.top,
+                self.target.bottom,
+            )
+        } else {
+            let trailing_anchor = if self.movement.y >= 0.0 {
+                self.quad[0].y.min(self.quad[1].y)
+            } else {
+                self.quad[2].y.max(self.quad[3].y) - target_height
+            };
+
+            (
+                self.target.left,
+                self.target.right,
+                trailing_anchor.min(self.target.top),
+                trailing_anchor.max(self.target.top),
+            )
+        };
 
         quad.vert[V_TOP_LEFT].position = [
             px_x + (left - pane_left as f32) * cell_width,
