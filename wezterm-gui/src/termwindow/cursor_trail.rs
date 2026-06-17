@@ -197,7 +197,7 @@ impl CursorTrail {
             self.cursor_last_moved = ctx.now;
             self.last_cursor_pos = ctx.cursor_pos;
 
-            if self.target.distance_to(ctx.cursor_pos) <= ctx.distance_threshold {
+            if self.target.distance_to(ctx.cursor_pos) < ctx.distance_threshold {
                 self.target = TrailTarget::at(ctx.cursor_pos);
                 self.quad = TrailQuad::at(ctx.cursor_pos);
                 return false;
