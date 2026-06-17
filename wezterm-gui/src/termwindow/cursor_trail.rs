@@ -269,18 +269,18 @@ impl CursorTrail {
         let mut top = self.quad[0].y.min(self.quad[1].y);
         let mut bottom = self.quad[2].y.max(self.quad[3].y);
 
-        // The real cursor is already drawn at the target; only draw the
-        // trailing segment behind it.
+        // The real cursor is anchored at the target's left/top edge; keep the
+        // trail connected to that anchor when moving in either direction.
         if self.movement.x.abs() >= self.movement.y.abs() {
             if self.movement.x >= 0.0 {
                 right = right.min(self.target.left);
             } else {
-                left = left.max(self.target.right);
+                left = left.min(self.target.left);
             }
         } else if self.movement.y >= 0.0 {
             bottom = bottom.min(self.target.top);
         } else {
-            top = top.max(self.target.bottom);
+            top = top.min(self.target.top);
         }
 
         if right < left {
